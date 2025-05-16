@@ -46,9 +46,9 @@ public class CalculateFactorialApp {
     }
 
     private void processTasks(ExecutorService executorService,
-                             LinkedBlockingQueue<String> inputQueue,
-                             LinkedBlockingQueue<String> outputQueue,
-                             CountDownLatch countDownLatch) throws InterruptedException, ExecutionException {
+                              LinkedBlockingQueue<String> inputQueue,
+                              LinkedBlockingQueue<String> outputQueue,
+                              CountDownLatch countDownLatch) throws InterruptedException, ExecutionException {
         RateLimiter rateLimiter = RateLimiter.create(maxCalculationsForSecond);
         List<Future<String>> results = new ArrayList<>();
 
