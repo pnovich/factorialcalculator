@@ -28,13 +28,13 @@ public class FactorialThread implements Callable<String> {
         String result;
         try {
             Integer currentInt = Integer.parseInt(line);
-            int intResult = 1;
+            long longResult = 1;
             if (currentInt > 1) {
                 for (int i = 1; i <= currentInt; i++) {
-                    intResult = intResult * i;
+                    longResult = longResult * i;
                 }
             }
-            result = currentInt + " = " + intResult;
+            result = currentInt + " = " + longResult;
         } catch (Exception e) {
             throw new NumberFormatException("invalid input");
         }
