@@ -6,6 +6,9 @@ import java.util.concurrent.*;
 
 public class CalculateFactorialApp {
     int numberOfThreads;
+    static int numberOfStringBeforeDelay = 4;
+    volatile FactorialCounter lineCounter;
+    volatile TimeCounter timeCounter = new TimeCounter(0);
     public CalculateFactorialApp(int numberOfThreads) {
        this.numberOfThreads = numberOfThreads;
     }
@@ -15,6 +18,7 @@ public class CalculateFactorialApp {
         LinkedBlockingQueue<String> inputQueue = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> outputQueue = new LinkedBlockingQueue<>();
         CountDownLatch countDownLatch = new CountDownLatch(numberOfThreads);
+        lineCounter = new FactorialCounter(0);
         inputQueue.offer("1");
         inputQueue.offer("2");
         inputQueue.offer("3");
@@ -30,14 +34,32 @@ public class CalculateFactorialApp {
 
         List<Future<String>> list = new ArrayList<Future<String>>();
 
+        ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(1);
+        TimeChecker timeChecker = new TimeChecker(timeCounter);
+        scheduledExecutor.scheduleAtFixedRate(timeChecker, 0,2, TimeUnit.MILLISECONDS);
+
         ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
-        for (int i = 0; i < numberOfThreads; i++) {
+        for (int i = 0; i < inputQueue.size(); i++) {
             String line = inputQueue.poll();
-            Future<String> future = executorService.submit(new FactorialThread("thread" + i, line, outputQueue, countDownLatch));
+            Future<String> future = executorService.submit(new FactorialThread("thread" + i, lineCounter, line, outputQueue, countDownLatch, timeCounter));
             list.add(future);
         }
 
+//        ScheduledExecutorService executorService = Executors.newScheduledThreadPool(numberOfThreads);
+//        for (int i = 0; i < numberOfThreads; i++) {
+//            String line = inputQueue.poll();
+//            Future<String> future = executorService.schedule(
+//                    new FactorialThread("thread" + i, lineCounter, line, outputQueue, countDownLatch, timeCounter),
+//                    2,
+//                    TimeUnit.MILLISECONDS
+//            );
+////                    executorService.submit(new FactorialThread("thread" + i, lineCounter, line, outputQueue, countDownLatch, timeCounter));
+//            list.add(future);
+//        }
+
+
         executorService.shutdown();
+        scheduledExecutor.shutdown();
         countDownLatch.await();
         for(Future<String> fut : list){
             try {
@@ -57,22 +79,31 @@ class FactorialThread implements Callable<String> {
     String input;
     LinkedBlockingQueue<String> outputQueue;
     CountDownLatch countDownLatch;
+    FactorialCounter factorialCounter;
+    FactorialCounter internalCounter;
+    TimeCounter timeCounter;
 
-    FactorialThread(String threadName, String input, LinkedBlockingQueue<String> outputQueue, CountDownLatch countDownLatch) {
+    FactorialThread(String threadName, FactorialCounter factorialCounter,  String input, LinkedBlockingQueue<String> outputQueue,
+                    CountDownLatch countDownLatch, TimeCounter timeCounter) {
         this.input = input;
         this.outputQueue = outputQueue;
         this.countDownLatch = countDownLatch;
         this.threadName = threadName;
+        this.factorialCounter = factorialCounter;
+        this.timeCounter = timeCounter;
+        this.internalCounter = new FactorialCounter(0);
     }
 
     @Override
     public String call() {
+
         String currrentResult = calculateFactorial(this.input);
         this.countDownLatch.countDown();
         return currrentResult;
     }
 
     private String calculateFactorial(String line) {
+        System.out.println("timeCounter inside calculation= " + timeCounter.getTimeCounter());
         String result;
         try {
             Integer currentInt = Integer.parseInt(line);
@@ -86,7 +117,70 @@ class FactorialThread implements Callable<String> {
         } catch (Exception e) {
             throw new NumberFormatException("invalid input");
         }
+
+        synchronized (factorialCounter) {
+            if (factorialCounter.getCounter() >= CalculateFactorialApp.numberOfStringBeforeDelay) {
+                try {
+                    System.out.println("delay, counter = " + factorialCounter.getCounter());
+                    Thread.sleep(1000);
+                    factorialCounter.setCounter(0);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            factorialCounter.setCounter(factorialCounter.getCounter() + 1);
+            internalCounter.setCounter(internalCounter.getCounter() + 1);
+            System.out.println("factorialCounter = " + factorialCounter.getCounter());
+            System.out.println("internalCounter = " + internalCounter.getCounter());
+
+        }
         return result;
     }
+}
 
+class FactorialCounter {
+    Integer factorialCounter;
+
+    public FactorialCounter(Integer factorialCounter) {
+        this.factorialCounter = factorialCounter;
+    }
+
+    public Integer getCounter() {
+        return factorialCounter;
+    }
+
+    public void setCounter(Integer factorialCounter) {
+        this.factorialCounter = factorialCounter;
+    }
+}
+
+class TimeCounter {
+    Integer timeCounter;
+
+    public TimeCounter(Integer timeCounter) {
+        this.timeCounter = timeCounter;
+    }
+
+    public Integer getTimeCounter() {
+        return timeCounter;
+    }
+
+    public void setTimeCounter(Integer timeCounter) {
+        this.timeCounter = timeCounter;
+    }
+}
+
+class TimeChecker implements Runnable {
+    TimeCounter timeCounter;
+
+    public TimeChecker(TimeCounter timeCounter) {
+        this.timeCounter = timeCounter;
+    }
+
+    @Override
+    public void run() {
+    timeCounter.setTimeCounter(timeCounter.getTimeCounter() + 1);
+        System.out.println("timeCounter = " + timeCounter.timeCounter);
+    }
 }
