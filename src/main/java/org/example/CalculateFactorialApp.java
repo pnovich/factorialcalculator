@@ -1,17 +1,19 @@
 package org.example;
 
 import java.io.*;
-import java.util.*;
 import java.util.concurrent.*;
+
 import com.google.common.util.concurrent.RateLimiter;
 
 public class CalculateFactorialApp {
-    int maxCalculationsForSecond = 100;
+    int maxCalculationsForSecond;
     String inputFileName = "src/main/resources/input.txt";
     String outputFileName = "src/main/resources/output.txt";
     int numberOfThreads;
-    public CalculateFactorialApp(int numberOfThreads) {
+
+    public CalculateFactorialApp(int numberOfThreads, int maxCalculationsForSecond) {
         this.numberOfThreads = numberOfThreads;
+        this.maxCalculationsForSecond = maxCalculationsForSecond;
     }
 
     public void proccessFactorial() throws InterruptedException {
@@ -23,6 +25,7 @@ public class CalculateFactorialApp {
         Thread readingThread = new Thread(producer);
         readingThread.start();
 
+        Thread.sleep(50);
         System.out.println("inputQueue = " + inputQueue);
 
         ScheduledExecutorService executorService1 = Executors.newScheduledThreadPool(numberOfThreads);
@@ -42,17 +45,19 @@ public class CalculateFactorialApp {
     public void processTasks(ScheduledExecutorService executorService,
                              LinkedBlockingQueue<String> inputQueue,
                              LinkedBlockingQueue<String> outputQueue,
-                             CountDownLatch countDownLatch) {
+                             CountDownLatch countDownLatch) throws InterruptedException {
         RateLimiter rateLimiter = RateLimiter.create(maxCalculationsForSecond);
         LinkedBlockingQueue<String> tempQueue = new LinkedBlockingQueue<>();
 
-        for (int i = 0; i < numberOfThreads; i++) {
-            String line = inputQueue.poll();
+        while (!inputQueue.isEmpty()) {
+            String line = inputQueue.take();
             if (line == null) continue;
 
-            String threadName = "thread" + i;
+            String threadName = "thread";
+
             executorService.submit(() -> {
                 rateLimiter.acquire();
+                System.out.println("Thread " + threadName + " already done acquire at " + System.currentTimeMillis());
                 String result = new FactorialThread(threadName, line, outputQueue, countDownLatch).call();
                 tempQueue.offer(result);
             });
@@ -66,7 +71,7 @@ public class CalculateFactorialApp {
         }
 
         while (!tempQueue.isEmpty()) {
-            outputQueue.offer(tempQueue.poll());
+            outputQueue.offer(tempQueue.take());
         }
     }
 
@@ -111,7 +116,7 @@ class FactorialThread implements Callable<String> {
     }
 }
 
-class NumbersProducer implements Runnable{
+class NumbersProducer implements Runnable {
 
     BlockingQueue<String> queueFromFile;
     String inputFilePath;
@@ -142,7 +147,6 @@ class NumbersProducer implements Runnable{
 }
 
 class SolutionsConsumer implements Runnable {
-
     BlockingQueue<String> queueToFile;
     String outputFileName;
 
@@ -153,18 +157,14 @@ class SolutionsConsumer implements Runnable {
 
     @Override
     public void run() {
-        try {
-            File outputFile = new File(outputFileName);
-            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
-            String line;
-            while ((line = queueToFile.poll()) != null) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(outputFileName)))) {
+            while (!queueToFile.isEmpty() && !Thread.currentThread().isInterrupted()) {
+                String line = queueToFile.take();
                 writer.write(line);
                 writer.newLine();
             }
-            writer.close();
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
