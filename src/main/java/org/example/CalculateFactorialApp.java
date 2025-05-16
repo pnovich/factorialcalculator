@@ -1,6 +1,8 @@
 package org.example;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.*;
 
 import com.google.common.util.concurrent.RateLimiter;
@@ -16,7 +18,7 @@ public class CalculateFactorialApp {
         this.maxCalculationsForSecond = maxCalculationsForSecond;
     }
 
-    public void proccessFactorial() throws InterruptedException {
+    public void proccessFactorial() throws InterruptedException, ExecutionException {
         LinkedBlockingQueue<String> inputQueue = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> outputQueue = new LinkedBlockingQueue<>();
         CountDownLatch countDownLatch = new CountDownLatch(numberOfThreads);
@@ -42,38 +44,67 @@ public class CalculateFactorialApp {
         writingThread.start();
     }
 
-    public void processTasks(ScheduledExecutorService executorService,
+    public void processTasks(ExecutorService executorService,
                              LinkedBlockingQueue<String> inputQueue,
                              LinkedBlockingQueue<String> outputQueue,
-                             CountDownLatch countDownLatch) throws InterruptedException {
+                             CountDownLatch countDownLatch) throws InterruptedException, ExecutionException {
         RateLimiter rateLimiter = RateLimiter.create(maxCalculationsForSecond);
-        LinkedBlockingQueue<String> tempQueue = new LinkedBlockingQueue<>();
+        List<Future<String>> results = new ArrayList<>();
 
-        while (!inputQueue.isEmpty()) {
+        int inputQueueSize = inputQueue.size();
+        for (int i = 0; i < inputQueueSize; i++) {
             String line = inputQueue.take();
             if (line == null) continue;
 
-            String threadName = "thread";
+            String threadName = "thread" + i;
+            rateLimiter.acquire(); // Обмеження частоти виконання
 
-            executorService.submit(() -> {
-                rateLimiter.acquire();
-                System.out.println("Thread " + threadName + " already done acquire at " + System.currentTimeMillis());
-                String result = new FactorialThread(threadName, line, outputQueue, countDownLatch).call();
-                tempQueue.offer(result);
+            Future<String> future = executorService.submit(() -> {
+                return new FactorialThread(threadName, line, outputQueue, countDownLatch).call();
             });
+
+            results.add(future);
         }
 
         executorService.shutdown();
-        try {
-            executorService.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        executorService.awaitTermination(5, TimeUnit.SECONDS);
 
-        while (!tempQueue.isEmpty()) {
-            outputQueue.offer(tempQueue.take());
+        for (Future<String> future : results) {
+            outputQueue.offer(future.get()); // Гарантоване збереження порядку
         }
     }
+//    public void processTasks(ScheduledExecutorService executorService,
+//                             LinkedBlockingQueue<String> inputQueue,
+//                             LinkedBlockingQueue<String> outputQueue,
+//                             CountDownLatch countDownLatch) throws InterruptedException {
+//        RateLimiter rateLimiter = RateLimiter.create(maxCalculationsForSecond);
+//        LinkedBlockingQueue<String> tempQueue = new LinkedBlockingQueue<>();
+//
+//        while (!inputQueue.isEmpty()) {
+//            String line = inputQueue.take();
+//            if (line == null) continue;
+//
+//            String threadName = "thread";
+//
+//            executorService.submit(() -> {
+//                rateLimiter.acquire();
+//                System.out.println("Thread " + threadName + " already done acquire at " + System.currentTimeMillis());
+//                String result = new FactorialThread(threadName, line, outputQueue, countDownLatch).call();
+//                tempQueue.offer(result);
+//            });
+//        }
+//
+//        executorService.shutdown();
+//        try {
+//            executorService.awaitTermination(5, TimeUnit.SECONDS);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//
+//        while (!tempQueue.isEmpty()) {
+//            outputQueue.offer(tempQueue.take());
+//        }
+//    }
 
 }
 
