@@ -20,7 +20,6 @@ public class CalculateFactorialApp {
     public void proccessFactorial() throws InterruptedException, ExecutionException {
         LinkedBlockingQueue<String> inputQueue = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> outputQueue = new LinkedBlockingQueue<>();
-        CountDownLatch countDownLatch = new CountDownLatch(numberOfThreads);
 
         NumbersProducer producer = new NumbersProducer(inputQueue, inputFileName);
         Thread readingThread = new Thread(producer);
@@ -28,8 +27,10 @@ public class CalculateFactorialApp {
 
         Thread.sleep(50);
         Long startTime = System.currentTimeMillis();
+        int threadsToRun = Math.min(numberOfThreads, inputQueue.size());
 
-        ScheduledExecutorService executorService1 = Executors.newScheduledThreadPool(numberOfThreads);
+        CountDownLatch countDownLatch = new CountDownLatch(threadsToRun);
+        ScheduledExecutorService executorService1 = Executors.newScheduledThreadPool(threadsToRun);
 
         processTasks(executorService1, inputQueue, outputQueue, countDownLatch);
 
