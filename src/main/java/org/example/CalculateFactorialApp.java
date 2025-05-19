@@ -59,11 +59,7 @@ public class CalculateFactorialApp {
 
             String threadName = "thread" + i;
             rateLimiter.acquire();
-
-            Future<String> future = executorService.submit(() -> {
-                return new FactorialThread(threadName, line, outputQueue, countDownLatch).call();
-            });
-
+            Future<String> future = executorService.submit(new FactorialThread(threadName, line, i, outputQueue, countDownLatch));
             results.add(future);
         }
 

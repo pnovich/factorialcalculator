@@ -9,22 +9,28 @@ public class FactorialThread implements Callable<String> {
     private String input;
     private LinkedBlockingQueue<String> outputQueue;
     private CountDownLatch countDownLatch;
+    private Integer lineNumber;
 
-    FactorialThread(String threadName, String input, LinkedBlockingQueue<String> outputQueue, CountDownLatch countDownLatch) {
+    FactorialThread(String threadName, String input, Integer lineNumber, LinkedBlockingQueue<String> outputQueue, CountDownLatch countDownLatch) {
         this.input = input;
         this.outputQueue = outputQueue;
         this.countDownLatch = countDownLatch;
         this.threadName = threadName;
+        this.lineNumber = lineNumber;
     }
 
     @Override
     public String call() {
-        String currrentResult = calculateFactorial(this.input);
+        String currrentResult = calculateFactorial(this.input, this.lineNumber);
         this.countDownLatch.countDown();
         return currrentResult;
     }
 
-    private String calculateFactorial(String line) {
+    private String calculateFactorial(String line, Integer lineNumber) {
+        if (line.isEmpty()) {
+            System.out.println(lineNumber + " ->  is empty");
+            return "";
+        }
         String result;
         try {
             Integer currentInt = Integer.parseInt(line);
@@ -36,9 +42,9 @@ public class FactorialThread implements Callable<String> {
             }
             result = currentInt + " = " + longResult;
         } catch (Exception e) {
-            throw new NumberFormatException("invalid input");
+            throw new NumberFormatException("invalid input = " + line + ", lineNumber = " + lineNumber);
         }
-        System.out.println(result);
+        System.out.println(lineNumber + " -> " + result);
         return result;
     }
 }
