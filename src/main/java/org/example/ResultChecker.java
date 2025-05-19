@@ -34,7 +34,7 @@ public class ResultChecker {
                     break;
                 }
 
-            } else if (!inputValue.substring(0,1).equals(outputValue.substring(0,1))) {
+            } else if (!inputValue.split(" ")[0].equals(outputValue.split("")[0])) {
                 flag = false;
                 count = i;
                 break;

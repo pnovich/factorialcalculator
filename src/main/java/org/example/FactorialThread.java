@@ -1,5 +1,6 @@
 package org.example;
 
+import java.math.BigInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -26,24 +27,23 @@ public class FactorialThread implements Callable<String> {
         return currrentResult;
     }
 
+
     private String calculateFactorial(String line, Integer lineNumber) {
-        if (line.isEmpty()) {
-            System.out.println(lineNumber + " ->  is empty");
-            return "";
+        if (!line.matches("\\d+")) {
+            System.out.println(lineNumber + " -> " + line);
+            return line;
         }
-        String result;
-        try {
-            Integer currentInt = Integer.parseInt(line);
-            long longResult = 1;
-            if (currentInt > 1) {
-                for (int i = 1; i <= currentInt; i++) {
-                    longResult = longResult * i;
-                }
+
+        int currentInt = Integer.parseInt(line);
+        BigInteger bigResult = BigInteger.ONE;
+
+        if (currentInt > 1) {
+            for (int i = 2; i <= currentInt; i++) {
+                bigResult = bigResult.multiply(BigInteger.valueOf(i));
             }
-            result = currentInt + " = " + longResult;
-        } catch (Exception e) {
-            throw new NumberFormatException("invalid input = " + line + ", lineNumber = " + lineNumber);
         }
+
+        String result = currentInt + " = " + bigResult;
         System.out.println(lineNumber + " -> " + result);
         return result;
     }
